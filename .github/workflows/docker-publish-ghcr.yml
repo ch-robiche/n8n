@@ -30,14 +30,18 @@ env:
 
 jobs:
   build-and-push:
-    name: Build and Push to GHCR
+    name: Build and Push to GHCR (${{ matrix.platform }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            docker_platform: linux/amd64
+          - platform: linux/arm64
+            docker_platform: linux/arm64
     outputs:
       image: ${{ steps.image.outputs.image }}
       digest: ${{ steps.build.outputs.digest }}
@@ -47,14 +51,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm@latest
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -96,11 +102,13 @@ jobs:
         with:
           context: .
           file: ./docker/images/n8n/Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: ${{ matrix.docker_platform }}
           build-args: |
             NODE_VERSION=22
             N8N_VERSION=${{ inputs.tag || github.sha }}
             N8N_RELEASE_TYPE=custom
+          provenance: true
+          sbom: true
           push: ${{ (github.event_name != 'pull_request') && (inputs.push_enabled != false) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

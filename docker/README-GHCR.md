@@ -21,12 +21,13 @@ This document describes the GitHub Actions workflow for building and publishing 
 
 ### What it does
 
-1. **Multi-platform build**: Builds for both AMD64 and ARM64 architectures
-2. **Build n8n**: Compiles the n8n application using `pnpm build:n8n`
-3. **Docker build**: Creates Docker images using the existing `docker/images/n8n/Dockerfile`
-4. **Push to GHCR**: Publishes images to `ghcr.io/your-username/n8n`
-5. **Multi-arch manifest**: Creates a unified manifest supporting both architectures
-6. **Security scan**: Runs Trivy vulnerability scanner and uploads results to GitHub Security tab
+1. **Setup environment**: Installs pnpm and Node.js with proper caching
+2. **Install dependencies**: Uses `pnpm install --frozen-lockfile` for reproducible builds
+3. **Build n8n**: Compiles the n8n application using `pnpm build:n8n`
+4. **Multi-platform build**: Builds Docker images for both AMD64 and ARM64 architectures
+5. **Push to GHCR**: Publishes images to `ghcr.io/your-username/n8n`
+6. **Multi-arch manifest**: Creates a unified manifest supporting both architectures
+7. **Security scan**: Runs Trivy vulnerability scanner and uploads results to GitHub Security tab
 
 ### Image Tags
 
