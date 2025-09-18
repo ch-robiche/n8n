@@ -214,6 +214,93 @@ export class McpClientTool implements INodeType {
 				},
 			},
 			{
+				displayName: 'Send Headers',
+				name: 'sendHeaders',
+				type: 'boolean',
+				default: false,
+				noDataExpression: true,
+				description: 'Whether to send additional headers with the request',
+			},
+			{
+				displayName: 'Specify Headers',
+				name: 'specifyHeaders',
+				type: 'options',
+				displayOptions: {
+					show: {
+						sendHeaders: [true],
+					},
+				},
+				options: [
+					{
+						name: 'Using Fields Below',
+						value: 'keypair',
+					},
+					{
+						name: 'Using JSON',
+						value: 'json',
+					},
+				],
+				default: 'keypair',
+			},
+			{
+				displayName: 'Header Parameters',
+				name: 'headerParameters',
+				type: 'fixedCollection',
+				displayOptions: {
+					show: {
+						sendHeaders: [true],
+						specifyHeaders: ['keypair'],
+					},
+				},
+				typeOptions: {
+					multipleValues: true,
+				},
+				placeholder: 'Add Header',
+				default: {
+					parameters: [
+						{
+							name: '',
+							value: '',
+						},
+					],
+				},
+				options: [
+					{
+						name: 'parameters',
+						displayName: 'Header',
+						values: [
+							{
+								displayName: 'Name',
+								name: 'name',
+								type: 'string',
+								default: '',
+								description: 'Name of the header',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value of the header',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'JSON',
+				name: 'jsonHeaders',
+				type: 'json',
+				displayOptions: {
+					show: {
+						sendHeaders: [true],
+						specifyHeaders: ['json'],
+					},
+				},
+				default: '',
+				description: 'Headers as JSON object',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				placeholder: 'Add Option',
@@ -260,7 +347,42 @@ export class McpClientTool implements INodeType {
 			endpointUrl = this.getNodeParameter('endpointUrl', itemIndex) as string;
 		}
 
-		const { headers } = await getAuthHeaders(this, authentication);
+		const { headers: authHeaders } = await getAuthHeaders(this, authentication);
+
+		// Get additional headers
+		const sendHeaders = this.getNodeParameter('sendHeaders', itemIndex, false) as boolean;
+		let additionalHeaders: Record<string, string> = {};
+
+		if (sendHeaders) {
+			const specifyHeaders = this.getNodeParameter('specifyHeaders', itemIndex, 'keypair') as string;
+
+			if (specifyHeaders === 'keypair') {
+				const headerParameters = this.getNodeParameter('headerParameters', itemIndex, {}) as {
+					parameters: Array<{ name: string; value: string }>;
+				};
+
+				if (headerParameters.parameters) {
+					for (const header of headerParameters.parameters) {
+						if (header.name && header.value) {
+							additionalHeaders[header.name] = header.value;
+						}
+					}
+				}
+			} else if (specifyHeaders === 'json') {
+				const jsonHeaders = this.getNodeParameter('jsonHeaders', itemIndex, '') as string;
+				if (jsonHeaders) {
+					try {
+						additionalHeaders = JSON.parse(jsonHeaders);
+					} catch (error) {
+						throw new NodeOperationError(node, 'Invalid JSON in headers', { itemIndex });
+					}
+				}
+			}
+		}
+
+		// Merge auth headers with additional headers (additional headers take precedence)
+		const headers = { ...authHeaders, ...additionalHeaders };
+
 		const client = await connectMcpClient({
 			serverTransport,
 			endpointUrl,
